@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ЕНТ — Школьный журнал</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* Language switcher */
+.lang-switcher {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 4px;
+}
+.lang-btn {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  letter-spacing: .5px;
+}
+.lang-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.lang-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🎓</div>
+    <div>
+      <div class="logo-text">School Admin</div>
+      <div class="logo-sub">ЕНТ Журнал</div>
+    </div>
+  </div>
+
+  <!-- Language Switcher -->
+  <div class="lang-switcher">
+    <button class="lang-btn active" data-lang="ru" onclick="setLang('ru')">РУС</button>
+    <button class="lang-btn" data-lang="kk" onclick="setLang('kk')">ҚАЗ</button>
+  </div>
+
+  <button class="nav-btn active" onclick="setView('dashboard')"><span class="icon">📊</span> Dashboard</button>
+  <button class="nav-btn" onclick="setView('classes')"><span class="icon">🏫</span> Группы</button>
+  <button class="nav-btn" onclick="setView('students')"><span class="icon">👨‍🎓</span> Все ученики</button>
+  <div class="sidebar-spacer"></div>
+
+  <!-- Admin badge (виден только когда вошёл) -->
+  <div id="admin-badge" class="admin-badge" style="display:none">
+    <span>🔐 Режим Admin</span>
+  </div>
+
+  <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">
+    <span id="theme-label">☀️ Светлая тема</span>
+    <div class="toggle-track" id="toggle-track"><div class="toggle-thumb"></div></div>
+  </button>
+
+  <!-- Кнопка "Войти как Admin" -->
+  <button class="btn-admin-login" id="admin-login-btn" onclick="openAdminLogin()">🔑 Войти как Admin</button>
+
+  <!-- Кнопка "Выйти" (только admin) -->
+  <button class="btn-admin-logout" id="admin-logout-btn" style="display:none" onclick="adminLogout()">🚪 Выйти из Admin</button>
+
+  <!-- Сбросить всё — только admin -->
+  <button class="sidebar-reset admin-only" style="display:none" onclick="confirmReset()">🗑 Сбросить всё</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- DASHBOARD -->
+  <div id="view-dashboard" class="view active">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Общая статистика школы</div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-label">Групп</div><div class="stat-value stat-accent" id="dash-classes">0</div></div>
+      <div class="stat-card"><div class="stat-label">Учеников</div><div class="stat-value" id="dash-students">0</div></div>
+      <div class="stat-card"><div class="stat-label">Сдали ЕНТ 1</div><div class="stat-value" id="dash-ent1">0</div></div>
+      <div class="stat-card"><div class="stat-label">Сдали ЕНТ 2</div><div class="stat-value" id="dash-ent2">0</div></div>
+    </div>
+    <div id="dash-class-list" class="class-grid"></div>
+  </div>
+
+  <!-- CLASSES -->
+  <div id="view-classes" class="view">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Группы</div>
+        <div class="page-sub">Управление классами и группами</div>
+      </div>
+    </div>
+    <!-- Форма добавления — только admin -->
+    <div class="form-row admin-only" style="display:none">
+      <div class="form-group">
+        <label>Название группы</label>
+        <input type="text" id="className" placeholder="Напр. 11А или Группа-3" onkeydown="if(event.key==='Enter')addClass()">
+      </div>
+      <button class="btn btn-primary" onclick="addClass()">+ Добавить группу</button>
+    </div>
+    <div id="classList" class="class-grid"></div>
+  </div>
+
+  <!-- CLASS DETAIL -->
+  <div id="view-class-detail" class="view">
+    <div class="breadcrumb">
+      <a onclick="setView('classes')">Группы</a>
+      <span class="sep">›</span>
+      <span class="current" id="detail-class-name">—</span>
+    </div>
+    <div class="page-header">
+      <div>
+        <div class="page-title" id="detail-class-title">Группа</div>
+        <div class="page-sub" id="detail-class-sub">Ученики группы</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary detail-admin-btn" style="display:none" onclick="document.getElementById('import-file').click()">📤 Импорт Excel</button>
+        <button class="btn btn-ghost" onclick="exportGroupExcel()">📥 Excel</button>
+        <button class="btn btn-primary detail-admin-btn" style="display:none" onclick="openAddStudentModal()">+ Ученик</button>
+      </div>
+    </div>
+    <div id="detail-student-table"></div>
+  </div>
+
+  <!-- ALL STUDENTS -->
+  <div id="view-students" class="view">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Все ученики</div>
+        <div class="page-sub">Список всех учеников школы</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary admin-only" style="display:none" onclick="document.getElementById('import-file').click()">📤 Импорт Excel</button>
+        <input type="file" id="import-file" accept=".xlsx,.xls,.csv" onchange="importExcel(event)" style="display:none">
+        <button class="btn btn-ghost" onclick="exportAllExcel()">📥 Экспорт Excel</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="studentSearch" placeholder="Поиск по имени или группе..." oninput="renderStudentsView()">
+    </div>
+    <div id="allStudentTable"></div>
+  </div>
+
+</div>
+
+<!-- MODAL: Admin Login -->
+<div class="modal-overlay" id="modal-admin-login" onclick="if(event.target===this)closeAdminLogin()">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <div class="modal-title">🔑 Вход для администратора</div>
+      <button class="modal-close" onclick="closeAdminLogin()">✕</button>
+    </div>
+    <div style="color:var(--text2);font-size:13px;margin-bottom:18px">
+      Введите пароль, чтобы получить доступ к редактированию данных.
+    </div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label>Пароль</label>
+      <input type="password" id="admin-pwd-input" placeholder="Введите пароль"
+        onkeydown="if(event.key==='Enter')submitAdminLogin()" style="width:100%">
+    </div>
+    <div id="admin-login-error" style="color:#f87171;font-size:13px;min-height:20px;margin-bottom:12px"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeAdminLogin()">Отмена</button>
+      <button class="btn btn-primary" onclick="submitAdminLogin()">Войти</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Student Detail -->
+<div class="modal-overlay" id="modal-student" onclick="if(event.target===this)closeStudentModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-student-name">—</div>
+        <div style="color:var(--text2);font-size:13px;margin-top:3px;" id="modal-student-cls">—</div>
+      </div>
+      <button class="modal-close" onclick="closeStudentModal()">✕</button>
+    </div>
+    <div class="ent-cards">
+      <!-- ENT 1 -->
+      <div class="ent-card">
+        <div class="ent-title" id="ent1-title">ЕНТ — Попытка 1</div>
+        <div id="ent1-content"></div>
+        <button id="upload-btn-1" class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;display:none" onclick="openUploadModal(1)">📤 Загрузить</button>
+      </div>
+      <!-- ENT 2 -->
+      <div class="ent-card">
+        <div class="ent-title" id="ent2-title">ЕНТ — Попытка 2</div>
+        <div id="ent2-content"></div>
+        <button id="upload-btn-2" class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;display:none" onclick="openUploadModal(2)">📤 Загрузить</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button id="delete-student-btn" class="btn btn-danger btn-sm" style="display:none" onclick="deleteCurrentStudent()">🗑 Удалить ученика</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Upload ENT -->
+<div class="modal-overlay" id="modal-upload" onclick="if(event.target===this)closeUploadModal()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title" id="upload-title">Загрузить результат ЕНТ</div>
+      <button class="modal-close" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label>Балл (0–140)</label>
+      <input type="number" id="upload-score" min="0" max="140" placeholder="Введите балл">
+    </div>
+    <div class="form-group">
+      <label>Фото результата</label>
+      <input type="file" id="upload-file" accept="image/*" onchange="previewUpload(event)">
+      <div class="upload-area" onclick="document.getElementById('upload-file').click()">
+        <div id="upload-preview-wrap">
+          <div>📷 Нажмите для выбора фото</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">JPG, PNG, WEBP · или вставьте Ctrl+V</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeUploadModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="saveENT()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Student -->
+<div class="modal-overlay" id="modal-add-student" onclick="if(event.target===this)closeAddStudentModal()">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">Добавить ученика</div>
+      <button class="modal-close" onclick="closeAddStudentModal()">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>ФИО ученика</label>
+      <input type="text" id="newStudentName" placeholder="Иванов Иван Иванович" style="width:100%">
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label>Группа</label>
+      <select id="newStudentCls" style="width:100%"></select>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeAddStudentModal()">Отмена</button>
+      <button class="btn btn-primary" onclick="saveNewStudent()">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Import Excel -->
+<div class="modal-overlay" id="modal-import" onclick="if(event.target===this)closeImportModal()">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">📤 Импорт учеников из Excel</div>
+        <div style="color:var(--text2);font-size:13px;margin-top:3px">Колонки: ФИО и Группа (в любом порядке)</div>
+      </div>
+      <button class="modal-close" onclick="closeImportModal()">✕</button>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:18px;font-size:13px;line-height:1.7">
+      <div style="font-weight:600;margin-bottom:6px;color:var(--accent)">📋 Формат файла:</div>
+      <div>• Первая строка — заголовки (ФИО, Группа)</div>
+      <div>• Со второй строки — ученики</div>
+      <div style="color:var(--text2);margin-top:6px">Пример:</div>
+      <table style="margin-top:6px;border-collapse:collapse;width:100%">
+        <tr style="background:var(--border)">
+          <td style="padding:4px 10px;border-radius:4px 0 0 0">ФИО</td>
+          <td style="padding:4px 10px;border-radius:0 4px 0 0">Группа</td>
+        </tr>
+        <tr><td style="padding:3px 10px;color:var(--text2)">Иванов Иван Иванович</td><td style="padding:3px 10px;color:var(--text2)">11А</td></tr>
+        <tr><td style="padding:3px 10px;color:var(--text2)">Петрова Анна</td><td style="padding:3px 10px;color:var(--text2)">11Б</td></tr>
+      </table>
+    </div>
+    <div id="import-preview" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:600" id="import-count"></div>
+        <div id="import-warn" style="color:var(--yellow);font-size:12px"></div>
+      </div>
+      <div style="max-height:240px;overflow-y:auto;border-radius:8px;border:1px solid var(--border)">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--surface2);position:sticky;top:0">
+            <th style="padding:9px 14px;text-align:left;font-size:12px;color:var(--text2);font-weight:600">ФИО</th>
+            <th style="padding:9px 14px;text-align:left;font-size:12px;color:var(--text2);font-weight:600">Группа</th>
+            <th style="padding:9px 14px;text-align:left;font-size:12px;color:var(--text2);font-weight:600">Статус</th>
+          </tr></thead>
+          <tbody id="import-preview-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="import-empty" style="text-align:center;padding:32px;color:var(--text3)">
+      Выберите файл Excel для предпросмотра
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeImportModal()">Отмена</button>
+      <button class="btn btn-primary" id="import-confirm-btn" style="display:none" onclick="confirmImport()">✅ Загрузить всех</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="ENT Result">
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+<script>
+  (function() {
+    const t = localStorage.getItem('theme') || 'dark';
+    if (t === 'light') document.body.classList.add('light');
+  })();
+  document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    initAdmin();
+    load();
+    // Apply saved language
+    applyLangUI();
+    const savedLang = localStorage.getItem('lang') || 'ru';
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.lang === savedLang);
+    });
+  });
+</script>
+</body>
+</html>
